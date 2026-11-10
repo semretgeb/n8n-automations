@@ -28,6 +28,8 @@ Telegram trigger → AI Agent (Claude Haiku 5.5, with conversation memory and tw
 
 The agent is instructed to answer only from the sheet data, so it doesn't invent prices or stock.
 
+Demo video: https://youtu.be/0XWijngAmbA
+
 ## Setup
 
 You need:
