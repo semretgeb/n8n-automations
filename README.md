@@ -4,7 +4,7 @@ Practical n8n workflows for small businesses: lead capture with AI scoring, and 
 
 ## Workflows
 
-### 01. Lead capture with AI scoring (Tally → Notion → Telegram)
+### 01. Lead capture with AI scoring: Tally → Notion → Telegram (`01-lead-capture-ai-scoring/`)
 
 When someone fills in a Tally form, the workflow scores the lead with an AI model, saves it to a Notion CRM, and sends an alert to Telegram with a suggested reply.
 
@@ -38,9 +38,9 @@ You need:
 - A Tally form (workflow 01) and a published Google Sheet as CSV (workflow 02)
 
 Steps:
-1. Import the JSON file from the workflow folder into n8n (Workflows → Import from file).
+1. Import the JSON file from the workflow folder into n8n (Workflows → Import from file). Import `shared/error-alert.json` too, and set it as the Error Workflow in each workflow's settings.
 2. Create the credentials and connect them to each node.
-3. Replace the placeholders: `OWNER_CHAT_ID`, the Notion database ID, and the Sheet URLs.
+3. Replace the placeholders: `OWNER_CHAT_ID`, `YOUR_NOTION_DATABASE_ID`, `YOUR_PRODUCTS_SHEET_CSV_URL` and `YOUR_FAQ_SHEET_CSV_URL` (use the sheet's CSV export link: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0`).
 4. Activate the workflow.
 
 ## Notes

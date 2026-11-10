@@ -1,0 +1,50 @@
+{
+  "name": "error alert",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5ba7bad8-431d-4a91-8e39-6d7aaf0cd76f",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "=⚠️ Workflow failed: {{ $json.workflow.name }} — {{ $json.execution.error.message }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "56217397-0f5e-4d94-9aa0-d1214a9c6b4f",
+      "name": "Send a text message"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}

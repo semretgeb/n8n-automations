@@ -1,0 +1,263 @@
+{
+  "name": "ai support agent -telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "You are the customer assistant for a small shop in Addis Ababa. Customers may write in English, in Amharic, or in Amharic typed with English letters (for example \"Kefeyaw endet nw\" means \"How is payment?\"); reply in the language and script they use. Be brief and friendly. Write plain text only: no tables, no markdown, no | characters; for lists use one item per line. Before answering, use your tools to look up products or the FAQ, and answer only from what they return. If the answer is not there, say so, tell the customer a human will reply shortly, and end your message with the exact text [HANDOFF]. Never invent prices, stock or promises.For every question about products, prices, stock or shop details, call the tools again, even if the answer appeared earlier in this conversation; the data may have changed."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "d20456e3-e3a3-49f5-92fb-ed8e656d281d",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 5.5"
+        },
+        "options": {
+          "thinkingMode": "disabled"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        96,
+        208
+      ],
+      "id": "5f2a8df1-1431-40ee-9c4f-014c98325cbc",
+      "name": "Anthropic Chat Model"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        208
+      ],
+      "id": "02878976-788d-4a25-b863-f0abd7ca923d",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Returns the shop's current product list with prices in ETB and stock. Call this before answering any question about products, prices or availability.",
+        "url": "YOUR_PRODUCTS_SHEET_CSV_URL",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        384,
+        208
+      ],
+      "id": "74678582-b2fc-4f3a-a429-6d77e9d5c2ba",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Returns the shop's FAQ: opening hours, delivery, payment methods, returns, location. Call this for any question about how the shop works.",
+        "url": "YOUR_FAQ_SHEET_CSV_URL",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        544,
+        208
+      ],
+      "id": "f1b4bd7b-cc1d-4832-8a02-124ab6eeedde",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "98c34824-59db-4d47-8687-f7f713c380cd",
+      "name": "Telegram Trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "58abebbd-ac1e-4e0b-8d1a-34e9c4f19eb6",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "[HANDOFF]",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        592,
+        0
+      ],
+      "id": "7a1db107-7531-46e7-a1c2-084b7104a7d2",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "=🔔 ደንበኛ እርዳታ ይፈልጋል ከ: {{ $('Telegram Trigger').item.json.message.from.first_name }}\nጥያቄ: {{ $('Telegram Trigger').item.json.message.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        800,
+        -48
+      ],
+      "id": "54df9345-8d84-4fd0-bd9d-09e162599f51",
+      "name": "Send a text message"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('AI Agent').item.json.output.replace('[HANDOFF]', '').trim() }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        784,
+        160
+      ],
+      "id": "06fd650d-7d5e-4b5c-aa02-ddbf75ec772c",
+      "name": "Send a text message1"
+    }
+  ],
+  "connections": {
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

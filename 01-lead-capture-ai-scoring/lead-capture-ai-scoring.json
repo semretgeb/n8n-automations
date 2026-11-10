@@ -1,0 +1,253 @@
+{
+  "name": "Lead Capture with AI Scoring",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-capture",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        192,
+        -16
+      ],
+      "id": "0c71b158-ffc5-4254-bb56-de05cd5d5864",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=  Score this sales lead for a small Ethiopian shop from 1 (cold) to 5 (ready to buy).\n  Name: {{ $json.name }}\n  Business: {{ $json.business }}\n  Message: {{ $json.message }}\n  Phone given: {{ $json.phone ? 'yes' : 'no' }}\n  Consider whether they describe a concrete need, mention timing or budget, and left a way to reach them. Write the suggested reply in the language of the message.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        640,
+        0
+      ],
+      "id": "01b45612-1865-477d-85f5-4146ebea6964",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "  {\"score\": 4, \"reason\": \"Named a product and wants it this week\", \"suggested_reply\": \"ሰላም አቤል፣ አዎ ወደ ቦሌ እናደርሳለን...\"}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        784,
+        208
+      ],
+      "id": "4a659524-b5be-4913-baa5-0b4ea2f629b1",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 5.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        560,
+        208
+      ],
+      "id": "9be08fe1-2b6a-458f-9b58-2a22d78ceb18",
+      "name": "Anthropic Chat Model"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "dataSourceId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_NOTION_DATABASE_ID"
+        },
+        "title": "Name",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "="
+            },
+            {
+              "key": "Business|rich_text",
+              "textContent": "={{ $('Lead fields').item.json.business }}"
+            },
+            {
+              "key": "Phone|phone_number",
+              "phoneValue": "={{ $('Lead fields').item.json.phone }}"
+            },
+            {
+              "key": "Message|rich_text",
+              "textContent": "={{ $('Lead fields').item.json.message }}"
+            },
+            {
+              "key": "Score|number",
+              "numberValue": "={{ $json.output.score }}"
+            },
+            {
+              "key": "AI note|rich_text",
+              "textContent": "={{ $json.output.reason }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "New"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "885eb501-80f9-40ef-8e3c-6535fe65c84f",
+      "name": "Create a database page"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6fa1ef36-5284-4154-97ca-5935d82056f7",
+              "name": "=name",
+              "value": "={{ $json.body.data.fields.find(f => f.label === 'Name').value }}",
+              "type": "string"
+            },
+            {
+              "id": "a9da8297-06ae-47a8-8b19-fc6a6c6b25c9",
+              "name": "business",
+              "value": "={{ $json.body.data.fields.find(f => f.label === 'Business').value }}",
+              "type": "string"
+            },
+            {
+              "id": "062f33b8-472c-4b18-a005-13578f7deb02",
+              "name": "phone",
+              "value": "={{ $json.body.data.fields.find(f => f.label === 'Phone').value }}",
+              "type": "string"
+            },
+            {
+              "id": "6a0ad635-a081-4e37-99ee-45700048a3da",
+              "name": "message",
+              "value": "={{ $json.body.data.fields.find(f => f.label === 'Message').value }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        416,
+        -16
+      ],
+      "id": "d278a73d-7d2d-436d-889f-c6b5a13d0210",
+      "name": "Lead fields"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "={{ $('Basic LLM Chain').item.json.output.score >= 4 ? '🔥 Hot lead' : '📩 New lead' }} ({{ $('Basic LLM Chain').item.json.output.score }}/5)\n{{ $('Lead fields').item.json.name }} · {{ $('Lead fields').item.json.business }} · {{ $('Lead fields').item.json.phone }}\n\n{{ $('Basic LLM Chain').item.json.output.reason }}\n\nSuggested reply: {{ $('Basic LLM Chain').item.json.output.suggested_reply }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1264,
+        32
+      ],
+      "id": "770fdbe0-8e33-4fb3-8de4-be1cc6594536",
+      "name": "Send a text message"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Lead fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead fields": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a database page": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}
