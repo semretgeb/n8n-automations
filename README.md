@@ -41,6 +41,7 @@ Gmail trigger (download attachments) → IF has attachment → Extract from File
 Extracted fields: vendor, date, invoice number, currency, subtotal, tax, total, and category (food, transport, office, utilities, other). Any field not printed on the receipt is set to null, so the model never guesses. Each row also records the sender and subject of the source email.
 
 Note: scanned or photographed receipts have no text layer, so they need an OCR step before extraction.
+nDemo video: https://www.loom.com/share/917972d9d74342f8a09829c4ca376c59
 
 ## Setup
 
