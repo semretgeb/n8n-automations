@@ -1,0 +1,283 @@
+{
+  "name": "Content Repurposer",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "={{ $json.URL }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "25a88f3f-c3cb-4237-98f8-801e2afae107",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Source: {{ $json.url }}\nPage title: {{ $json.title }}\nMy notes: {{ $json.notes }}\nYou write social posts for Semret, an n8n and AI automation developer who helps small businesses. Use only facts from the article; never invent numbers or quotes.\ntitle: a short title for this draft (max 80 characters).\nsummary: 3 short bullet points.\nlinkedin_post: 120 to 200 words. First line is a hook. Plain language, one practical takeaway for small business owners, end with a question. At most 3 hashtags at the end. No links.\nx_post: under 270 characters, 1 or 2 hashtags, no links.\n\nSource: {{ $json.url }}\nPage title: {{ $json.title }}\nMy notes: {{ $json.notes }}\n\nArticle text:\n{{ $json.text }}",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        672,
+        0
+      ],
+      "id": "41c35983-06b7-44ec-9c8b-c196580ed388",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 5.5"
+        },
+        "options": {
+          "thinkingMode": "disabled"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        608,
+        208
+      ],
+      "id": "fe1e3057-3213-42e6-b0db-e5b46ede8594",
+      "name": "Anthropic Chat Model"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"title\": \"How AI agents cut support time\",\n  \"summary\": \"- point one\\n- point two\\n- point three\",\n  \"linkedin_post\": \"Hook line...\\n\\nBody...\\n\\nWhat do you think?\\n\\n#AI #Automation\",\n  \"x_post\": \"Short post under 270 characters #AI\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        816,
+        208
+      ],
+      "id": "6b9d9b04-a74d-4b3b-93b8-2a530e2ee600",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.first().json.data || '';\nconst title = ((html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i) || [])[1] || '').trim();\nconst text = html\n  .replace(/<(script|style|nav|footer|header)[\\s\\S]*?<\\/\\1>/gi, ' ')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, \"'\").replace(/&quot;/g, '\"')\n  .replace(/\\s+/g, ' ')\n  .trim();\nconst form = $('n8n Form Trigger').first().json;\nreturn [{ json: { url: form.URL, notes: form.Notes || '', title, text: text.slice(0, 12000) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "f2c22a68-4deb-4857-a0f2-a412fbf60bd8",
+      "name": "Clean article"
+    },
+    {
+      "parameters": {
+        "formTitle": "New content link",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "URL"
+            },
+            {
+              "fieldLabel": "Notes",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f7100d28-db2d-4ea9-8392-429bba673be9",
+      "name": "n8n Form Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "dataSourceId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_NOTION_DATABASE_ID"
+        },
+        "title": "={{ $json.output.title }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Source URL|url",
+              "urlValue": "={{ $('Clean article').item.json.url }}"
+            },
+            {
+              "key": "Summary|rich_text",
+              "textContent": "={{ $json.output.summary }}"
+            },
+            {
+              "key": "LinkedIn draft|rich_text",
+              "textContent": "={{ $json.output.linkedin_post }}"
+            },
+            {
+              "key": "X draft|rich_text",
+              "textContent": "={{ $json.output.x_post }}"
+            },
+            {
+              "key": "Status|select",
+              "selectValue": "Needs review"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "c74272c9-28ee-49e5-b4be-a8c59fa0d7c8",
+      "name": "Create a database page"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#content"
+        },
+        "text": "=📝 New draft to review: {{ $('Basic LLM Chain').item.json.output.title }} {{ $json.url }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1072,
+        208
+      ],
+      "id": "dd5c7f0b-92c2-423b-a18e-128ef7d2e4a5",
+      "name": "Send a message"
+    },
+    {
+      "parameters": {
+        "content": "Content Repurposer: paste a link in the form → Claude Haiku 5.5 writes a summary, LinkedIn and X drafts → saved to Notion Content Drafts (Needs review) → Slack alert. Cost about $0.0007 per article. Errors → Error Alert - Slack.",
+        "height": 176,
+        "width": 352
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -224
+      ],
+      "id": "481e030e-d0a9-46d9-ae50-05573463db62",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Clean article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean article": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a database page": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

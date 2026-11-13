@@ -1,0 +1,226 @@
+{
+  "name": "Morning Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0bc475d1-0be0-4412-b02e-e72233baeea1",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_SHOP_ORDERS_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sheet1"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "596ca369-b858-40b7-995c-3994179d5e16",
+      "name": "Get row(s) in sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst day = r => String(r.date).slice(0, 10);\nconst today = new Date().toISOString().slice(0, 10);\nconst days = [...new Set(rows.map(day))].filter(d => d < today).sort();\nconst reportDay = days[days.length - 1];\nconst prevDay = days[days.length - 2];\n\nfunction stats(d) {\n  const list = rows.filter(r => day(r) === d);\n  const paid = list.filter(r => r.status === 'paid');\n  const sum = a => a.reduce((s, r) => s + Number(r.total_etb || 0), 0);\n  const byProduct = {};\n  for (const r of paid) byProduct[r.product] = (byProduct[r.product] || 0) + Number(r.total_etb || 0);\n  const top = Object.entries(byProduct).sort((a, b) => b[1] - a[1]).slice(0, 3)\n    .map(([p, v]) => `${p} (${v} ETB)`);\n  return {\n    orders: list.length,\n    paid_orders: paid.length,\n    revenue_etb: sum(paid),\n    avg_order_etb: paid.length ? Math.round(sum(paid) / paid.length) : 0,\n    pending_orders: list.filter(r => r.status === 'pending').length,\n    pending_value_etb: sum(list.filter(r => r.status === 'pending')),\n    cancelled: list.filter(r => r.status === 'cancelled').length,\n    top_products: top,\n  };\n}\nconst cur = stats(reportDay), prev = stats(prevDay);\nconst change = prev.revenue_etb ? Math.round((cur.revenue_etb - prev.revenue_etb) / prev.revenue_etb * 100) : null;\nreturn [{ json: { report_day: reportDay, previous_day: prevDay, ...cur, revenue_change_pct: change, previous_revenue_etb: prev.revenue_etb } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "a36ec282-86e9-4024-9b52-0868aa6564b0",
+      "name": "Daily stats"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a short morning sales briefing for a small online shop owner, for Telegram. Use only these numbers; do not invent anything.\n\nDay: {{ $json.report_day }} (compared with {{ $json.previous_day }})\nOrders: {{ $json.orders }} (paid {{ $json.paid_orders }}, pending {{ $json.pending_orders }}, cancelled {{ $json.cancelled }})\nRevenue (paid): {{ $json.revenue_etb }} ETB, change vs previous day: {{ $json.revenue_change_pct }}%\nAverage order: {{ $json.avg_order_etb }} ETB\nPending value to follow up: {{ $json.pending_value_etb }} ETB\nTop products: {{ $json.top_products.join(', ') }}\n\nFormat: a one-line greeting with the date, then 3 short bullet points (revenue, top product, pending orders), then one suggested action for today. Under 100 words. Plain text with emoji, no markdown symbols like ** or #",
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        608,
+        0
+      ],
+      "id": "62d05305-12f5-4a20-8cd4-091c5f46ba88",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 5.5"
+        },
+        "options": {
+          "thinkingMode": "disabled"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        576,
+        208
+      ],
+      "id": "061d6436-882e-4961-ae75-7a16707cfe27",
+      "name": "Anthropic Chat Model"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "2b89716a-6d17-4672-8b4b-285800ddbb32",
+      "name": "Send a text message"
+    },
+    {
+      "parameters": {
+        "sendTo": "you@example.com",
+        "subject": "=Morning report – {{ $('Daily stats').item.json.report_day }}",
+        "emailType": "text",
+        "message": "={{ $('Basic LLM Chain').item.json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        0
+      ],
+      "id": "61204b11-bbb0-467a-9852-fe8f2feff9ff",
+      "name": "Send a message"
+    },
+    {
+      "parameters": {
+        "content": "Morning Report: every day 07:00 Addis time, reads Shop Orders (Google Sheets), computes yesterday's paid revenue, pending orders and top products, Claude Haiku 5.5 writes a short briefing, sent by Telegram and Gmail. About $0.0002 per day. Errors → Error Alert - Slack.",
+        "height": 192,
+        "width": 288
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        48,
+        -256
+      ],
+      "id": "912cc7cf-1978-41b1-a941-ed2c0eb429f7",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Daily stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily stats": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Africa/Addis_Ababa",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

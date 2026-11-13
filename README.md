@@ -1,6 +1,6 @@
 # n8n Automations
 
-Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, and receipt processing from Gmail. Each workflow is exported as JSON so it can be imported into your own n8n instance.
+Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, and a daily AI sales report. Each workflow is exported as JSON so it can be imported into your own n8n instance.
 
 ## Workflows
 
@@ -44,6 +44,33 @@ Note: scanned or photographed receipts have no text layer, so they need an OCR s
 
 Demo video: https://www.loom.com/share/917972d9d74342f8a09829c4ca376c59
 
+### 04. Content repurposing with approval: link → Claude → Notion → Slack (`04-content-repurposing/`)
+
+Paste an article link into a form. Claude writes a summary, a LinkedIn post and an X post, and saves them to a Notion "Content Drafts" database for review. When a draft is set to Approved, a second workflow posts both drafts to Slack, ready to publish, and marks the row as Posted.
+
+Two workflows:
+
+- `content-repurposer.json`: n8n Form (URL, notes) → HTTP Request (fetch page) → Code (strip HTML, keep 12,000 characters) → Basic LLM Chain (Claude Haiku 5.5, structured output: title, summary, linkedin_post, x_post) → Notion page (Status: Needs review) → Slack alert
+- `approved-drafts-to-slack.json`: Schedule (every minute) → Notion get pages → IF Status = Approved → Slack message with both drafts → Notion update (Status: Posted)
+
+The approval step polls on a schedule rather than using the Notion trigger, because Notion's edit times are rounded to the minute and a quick approval can be missed.
+
+Notion database columns: Title, Source URL, Summary, LinkedIn draft, X draft, Status (select: Needs review, Approved, Rejected, Posted).
+
+Running cost: about $0.0007 per article with Claude Haiku 5.5.
+
+### 05. Morning sales report: Google Sheets → Claude → Telegram and Gmail (`05-morning-report/`)
+
+Every day at 07:00 the workflow reads a shop's orders, calculates yesterday's paid revenue, change from the day before, average order, pending orders and top products, and Claude turns the numbers into a short briefing with one suggested action. It is sent by Telegram and email.
+
+Flow:
+
+Schedule (07:00, workflow timezone set) → Google Sheets get rows → Code (daily stats) → Basic LLM Chain (Claude Haiku 5.5, uses only the given numbers) → Telegram message → Gmail message
+
+`shop-orders-sample.csv` contains 155 sample orders for a demo shop (columns `order_id, date, customer, product, qty, unit_price_etb, total_etb, status`). Import it into a Google Sheet to try the workflow. The report covers the most recent day with orders before today, so the sample keeps working.
+
+Running cost: about $0.00012 per day, under 1 cent a month.
+
 ## Setup
 
 You need:
@@ -52,12 +79,12 @@ You need:
 - A Notion integration with access to your leads database
 - A Telegram bot token, and your chat ID for alerts
 - A Tally form (workflow 01) and a published Google Sheet as CSV (workflow 02)
-- Gmail and Google Sheets OAuth credentials, and a Slack app with the `chat:write` scope (workflow 03)
+- Gmail and Google Sheets OAuth credentials, and a Slack app with the `chat:write` scope (workflows 03 to 05)
 
 Steps:
 1. Import the JSON file from the workflow folder into n8n (Workflows → Import from file). Import `shared/error-alert.json` (Telegram) or `shared/error-alert-slack.json` (Slack) too, and set it as the Error Workflow in each workflow's settings.
 2. Create the credentials and connect them to each node.
-3. Replace the placeholders: `OWNER_CHAT_ID`, `YOUR_NOTION_DATABASE_ID`, `YOUR_PRODUCTS_SHEET_CSV_URL`, `YOUR_FAQ_SHEET_CSV_URL` and `YOUR_RECEIPTS_SHEET_ID` (use the sheet's CSV export link: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0`). For workflow 03, create a sheet with the header row `vendor, date, invoice_number, currency, subtotal, tax, total, category, source_email`, and pick your Slack channel in both Slack nodes.
+3. Replace the placeholders: `OWNER_CHAT_ID`, `YOUR_NOTION_DATABASE_ID`, `YOUR_PRODUCTS_SHEET_CSV_URL`, `YOUR_FAQ_SHEET_CSV_URL` , `YOUR_RECEIPTS_SHEET_ID` and `YOUR_SHOP_ORDERS_SHEET_ID` (use the sheet's CSV export link: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0`). For workflow 03, create a sheet with the header row `vendor, date, invoice_number, currency, subtotal, tax, total, category, source_email`, and pick your Slack channel in both Slack nodes. For workflow 04, create the Notion database described above and share it with your Notion integration. For workflow 05, set the workflow timezone in its settings and replace `you@example.com` with your email.
 4. Activate the workflow.
 
 ## Notes
