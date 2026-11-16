@@ -59,6 +59,8 @@ Notion database columns: Title, Source URL, Summary, LinkedIn draft, X draft, St
 
 Running cost: about $0.0007 per article with Claude Haiku 5.5.
 
+Demo video: https://youtu.be/5yoprVV5yOE
+
 ### 05. Morning sales report: Google Sheets → Claude → Telegram and Gmail (`05-morning-report/`)
 
 Every day at 07:00 the workflow reads a shop's orders, calculates yesterday's paid revenue, change from the day before, average order, pending orders and top products, and Claude turns the numbers into a short briefing with one suggested action. It is sent by Telegram and email.
@@ -70,6 +72,8 @@ Schedule (07:00, workflow timezone set) → Google Sheets get rows → Code (dai
 `shop-orders-sample.csv` contains 155 sample orders for a demo shop (columns `order_id, date, customer, product, qty, unit_price_etb, total_etb, status`). Import it into a Google Sheet to try the workflow. The report covers the most recent day with orders before today, so the sample keeps working.
 
 Running cost: about $0.00012 per day, under 1 cent a month.
+
+Demo video: https://youtu.be/ABhIhpixzJ8
 
 ## Setup
 
