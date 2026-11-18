@@ -1,6 +1,6 @@
 # n8n Automations
 
-Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, and a daily AI sales report. Each workflow is exported as JSON so it can be imported into your own n8n instance.
+Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, a daily AI sales report, and a website chat assistant with a knowledge base and calendar booking. Each workflow is exported as JSON so it can be imported into your own n8n instance.
 
 ## Workflows
 
@@ -75,6 +75,29 @@ Running cost: about $0.00012 per day, under 1 cent a month.
 
 Demo video: https://youtu.be/ABhIhpixzJ8
 
+### 06. Website chat assistant with RAG and calendar booking (`06-website-assistant/`)
+
+A chat bubble on a website that answers visitors from the owner's own knowledge base, qualifies leads, books a 20-minute call in Google Calendar and alerts the owner on Telegram. Live on https://semretgeb.github.io/ (when the self-hosted n8n is running).
+
+Two workflows:
+
+- `load-knowledge.json`: Manual trigger → knowledge text → Default Data Loader with a Recursive Character Text Splitter (600 / 80) → Gemini embeddings (`gemini-embedding-001`, 3072 dimensions) → Supabase vector store
+- `website-chat-assistant.json`: n8n Chat Trigger (embedded, allowed origins set) → AI Agent (Claude Haiku 5.5, thinking disabled, simple memory) with four tools:
+  - `knowledge_base`: Supabase vector store retrieval (top 4 pieces)
+  - `check_calendar`: Google Calendar availability
+  - `book_call`: Google Calendar event with the visitor as attendee, only after the visitor confirms
+  - `notify_semret`: Telegram message to the owner for booked calls, serious leads and unanswered questions
+
+The agent answers only from the knowledge base and hands unknown questions to the owner instead of guessing.
+
+Also in the folder:
+
+- `supabase-setup.sql`: the `documents` table and `match_documents` search function
+- `knowledge-base-example.md`: the knowledge document used on the live site (services, prices, projects, FAQ)
+- `embed-widget.html`: the website snippet (n8n chat widget), with an offline fallback when n8n can't be reached
+
+Running cost: about $0.0006 per answered question with Claude Haiku 5.5 (about 4,800 tokens including the retrieved knowledge). Supabase and Gemini embeddings run on free tiers.
+
 ## Setup
 
 You need:
@@ -84,11 +107,12 @@ You need:
 - A Telegram bot token, and your chat ID for alerts
 - A Tally form (workflow 01) and a published Google Sheet as CSV (workflow 02)
 - Gmail and Google Sheets OAuth credentials, and a Slack app with the `chat:write` scope (workflows 03 to 05)
+- A Supabase project, a Google Gemini API key and a Google Calendar OAuth credential (workflow 06)
 
 Steps:
 1. Import the JSON file from the workflow folder into n8n (Workflows → Import from file). Import `shared/error-alert.json` (Telegram) or `shared/error-alert-slack.json` (Slack) too, and set it as the Error Workflow in each workflow's settings.
 2. Create the credentials and connect them to each node.
-3. Replace the placeholders: `OWNER_CHAT_ID`, `YOUR_NOTION_DATABASE_ID`, `YOUR_PRODUCTS_SHEET_CSV_URL`, `YOUR_FAQ_SHEET_CSV_URL` , `YOUR_RECEIPTS_SHEET_ID` and `YOUR_SHOP_ORDERS_SHEET_ID` (use the sheet's CSV export link: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0`). For workflow 03, create a sheet with the header row `vendor, date, invoice_number, currency, subtotal, tax, total, category, source_email`, and pick your Slack channel in both Slack nodes. For workflow 04, create the Notion database described above and share it with your Notion integration. For workflow 05, set the workflow timezone in its settings and replace `you@example.com` with your email.
+3. Replace the placeholders: `OWNER_CHAT_ID`, `YOUR_NOTION_DATABASE_ID`, `YOUR_PRODUCTS_SHEET_CSV_URL`, `YOUR_FAQ_SHEET_CSV_URL` , `YOUR_RECEIPTS_SHEET_ID` and `YOUR_SHOP_ORDERS_SHEET_ID` (use the sheet's CSV export link: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0`). For workflow 03, create a sheet with the header row `vendor, date, invoice_number, currency, subtotal, tax, total, category, source_email`, and pick your Slack channel in both Slack nodes. For workflow 04, create the Notion database described above and share it with your Notion integration. For workflow 05, set the workflow timezone in its settings and replace `you@example.com` with your email. For workflow 06, run `supabase-setup.sql`, paste your own knowledge text into the load workflow and run it, set your calendar in both calendar tools and your website in the Chat Trigger's Allowed Origins, then put the Chat Trigger's production URL into `embed-widget.html`.
 4. Activate the workflow.
 
 ## Notes

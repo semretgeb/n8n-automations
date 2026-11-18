@@ -1,0 +1,283 @@
+{
+  "name": "Assistant – Website chat",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {
+          "allowedOrigins": "https://your-website.example"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9e2c0db9-85a3-434c-b38b-dd29eac4a4e7",
+      "name": "When chat message received"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are the website assistant for Semret Gebru, an n8n and AI automation developer in Addis Ababa (UTC+3). You talk to potential clients visiting Semret's website.\n\nNow it is {{ $now.setZone('Africa/Addis_Ababa').toFormat(\"cccc d LLLL yyyy, HH:mm\") }} Addis Ababa time.\n\nRules:\n- For ANY question about Semret (services, prices, projects, tools, process, availability), first call the knowledge_base tool and answer only from what it returns. Never invent prices, projects, clients or numbers. If the answer is not there, say Semret will reply personally and use notify_semret.\n- Keep answers short: 2 to 4 sentences, friendly, plain English. Answer in Amharic if the visitor writes in Amharic.\n- Prices are starting points; Semret confirms a fixed price after a call. Never offer discounts.\n\nQualifying a lead: when a visitor describes a project, ask (one or two questions at a time): what they want to automate, which tools they use today, their timeline, and rough budget. Then offer a free 20-minute call.\n\nBooking a call:\n- Calls are 20 minutes, Monday to Friday, between 10:00 and 20:00 Addis Ababa time.\n- Ask for the visitor's name, email and preferred day and time (convert their time zone to Addis Ababa time and say both).\n- Use check_calendar to see if Semret is busy at that time. If busy, suggest the nearest free slot.\n- Repeat the details and ask \"Shall I book it?\" Only after the visitor says yes, use book_call.\n- After booking, use notify_semret with: name, email, project summary, tools, timeline, budget and the call time.\n\nAlso use notify_semret when a visitor is a serious lead but does not want a call, or when you could not answer. IMPORTANT: whenever you tell the visitor that you will pass something to Semret, you must call the notify_semret tool in that same reply, before you answer. Never say you passed something on without calling the tool. Never share Semret's phone number or private details. Refer to Semret by name, not with he or she"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        288,
+        16
+      ],
+      "id": "7aabec58-d89c-445b-8e4e-5a25ec3c2b1f",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 5.5",
+          "cachedResultUrl": ""
+        },
+        "options": {
+          "thinkingMode": "disabled"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        96,
+        208
+      ],
+      "id": "d0316465-e3fc-4180-998e-e293c595ab1a",
+      "name": "Anthropic Chat Model"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        208
+      ],
+      "id": "65e0e8e1-7577-49eb-a8f9-9dc67ee0af2b",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search Semret's services, prices, projects, tools, process, availability and FAQ. Use for every question about Semret.",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.4,
+      "position": [
+        640,
+        32
+      ],
+      "id": "27c17b53-bcb4-4aaa-8633-f40a9af57b0b",
+      "name": "knowledge_base"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        848,
+        208
+      ],
+      "id": "5f6a0e77-942e-46a6-8cd0-7baa20f853d3",
+      "name": "Embeddings Google Gemini"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "primary"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+        "additionalFields": {
+          "attendees": [
+            "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('attendees0_Attendees', `Book a 20-minute call in Semret's calendar. Only use after the visitor confirmed. Put the visitor's email in attendees and the project summary in the description.`, 'string') }}"
+          ],
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', ``, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        720,
+        240
+      ],
+      "id": "e53c1046-d72c-4fb2-8e09-d8fa8a730c38",
+      "name": "book_call"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Text', `Send Semret a Telegram message about a new lead, a booked call, or a question you could not answer.`, 'string') }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegramTool",
+      "typeVersion": 1.2,
+      "position": [
+        592,
+        240
+      ],
+      "id": "b3767c4f-3460-4821-8f21-186ff201922a",
+      "name": "notify_semret"
+    },
+    {
+      "parameters": {
+        "content": "Assistant – Website chat: chat widget on semretgeb.github.io → Claude Haiku 5.5 agent with memory. Tools: knowledge_base (Supabase RAG, Gemini embeddings), check_calendar + book_call (Google Calendar), notify_semret (Telegram). Answers only from the knowledge base; books 20-min calls after confirmation. Errors → Error Alert - Slack.",
+        "height": 176,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -224
+      ],
+      "id": "dfa87758-b874-4a8c-b716-aad0de3ac35d",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "primary"
+        },
+        "timeMin": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start_Time', ``, 'string') }}",
+        "timeMax": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End_Time', `Check if Semret is free between a start and end time (ISO format, Addis Ababa time)`, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        448,
+        336
+      ],
+      "id": "bb3821e7-6ae0-4990-9209-adfccacad0d9",
+      "name": "check_calendar"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "knowledge_base": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "knowledge_base",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "book_call": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify_semret": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Africa/Addis_Ababa",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

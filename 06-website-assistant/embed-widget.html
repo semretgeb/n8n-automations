@@ -1,0 +1,37 @@
+<!-- Paste before </body> on your website. Replace YOUR_CHAT_WEBHOOK_URL with the
+     Chat Trigger's production URL (https://<your-n8n>/webhook/<id>/chat) and add
+     your website to the trigger's Allowed Origins. -->
+<link href="https://cdn.jsdelivr.net/npm/@n8n/chat@1.46.0/dist/style.css" rel="stylesheet">
+<div id="assistant-offline" style="display:none;position:fixed;right:20px;bottom:20px;z-index:9999;background:#0f1b2d;color:#fff;border-radius:14px;padding:12px 16px;max-width:280px;font:14px/1.45 system-ui,sans-serif">
+  The assistant is offline right now. Please get in touch another way.
+</div>
+<script type="module">
+  import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.46.0/dist/chat.bundle.es.js';
+  const WEBHOOK = 'YOUR_CHAT_WEBHOOK_URL';
+  const HEADERS = { 'ngrok-skip-browser-warning': 'true' }; // only needed behind an ngrok free domain
+
+  async function online() {
+    try {
+      const r = await fetch(WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...HEADERS },
+        body: JSON.stringify({ action: 'loadPreviousSession', sessionId: 'status-check' }),
+        signal: AbortSignal.timeout(6000),
+      });
+      return r.ok && (r.headers.get('content-type') || '').includes('json');
+    } catch { return false; }
+  }
+
+  if (await online()) {
+    createChat({
+      webhookUrl: WEBHOOK,
+      webhookConfig: { method: 'POST', headers: HEADERS },
+      mode: 'window',
+      showWelcomeScreen: false,
+      loadPreviousSession: false,
+      initialMessages: ['Hi! Ask me about services, prices or projects, or book a free 20-minute call.'],
+    });
+  } else {
+    document.getElementById('assistant-offline').style.display = 'block';
+  }
+</script>
