@@ -98,6 +98,16 @@ Also in the folder:
 
 Running cost: about $0.0006 per answered question with Claude Haiku 5.5 (about 4,800 tokens including the retrieved knowledge). Supabase and Gemini embeddings run on free tiers.
 
+### 07. Lead capture with AI scoring in Make.com (`07-lead-capture-make/`)
+
+The workflow 01 idea rebuilt in Make.com, exported as a Make blueprint.
+
+Flow:
+
+Tally webhook → Anthropic Claude (score 1–5, reason, suggested reply) → Parse JSON → Google Sheets row → Router (🔥 Hot lead for score 4 or 5, 📩 New lead otherwise) → Telegram alert, with error routes that send a Telegram alert if scoring fails
+
+Running cost: about $0.00007 per lead with Claude Haiku 5.5, plus about 5 Make operations. Setup steps are in the folder's README.
+
 ## Setup
 
 You need:
