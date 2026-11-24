@@ -108,6 +108,16 @@ Tally webhook → Anthropic Claude (score 1–5, reason, suggested reply) → Pa
 
 Running cost: about $0.00007 per lead with Claude Haiku 5.5, plus about 5 Make operations. Setup steps are in the folder's README.
 
+### 08. AI LinkedIn assistant you control from Telegram (`08-linkedin-assistant-telegram/`)
+
+Every weekday at 4 pm (or with `/post`), a Telegram bot asks what I built. I reply in the chat, Claude writes a LinkedIn post from my notes and a Notion page of real facts, and I approve it, ask for changes in plain words, or paste my own wording. Approved posts go to LinkedIn and are logged in Notion.
+
+Flow:
+
+Schedule or Telegram message → only my chat ID → route by conversation state (kept in workflow static data) → Notion facts → Claude Haiku 5.5 draft → Telegram with ✅ Approve / ⏭ Skip → LinkedIn post → Notion log
+
+Running cost: about $0.0005 per post.
+
 ## Setup
 
 You need:

@@ -1,0 +1,725 @@
+{
+  "name": "Daily LinkedIn Post (Telegram chat)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 16 * * 1-5"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        160
+      ],
+      "name": "Weekdays 4 pm",
+      "id": "b2c3d4e5-0000-4000-8000-000000000000"
+    },
+    {
+      "parameters": {
+        "jsCode": "function startPost(s) {\n  const day = new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Africa/Addis_Ababa' });\n  const plan = {\n    Monday: ['Plan', 'What are you building or learning this week, and why does it matter for a small business?'],\n    Tuesday: ['Build log', 'What did you build today? What broke, and how did you fix it?'],\n    Wednesday: ['Tip', \"What's one tip from your work that a small business owner or builder could use today?\"],\n    Thursday: ['Build log', 'What did you build today? What broke, and how did you fix it?'],\n    Friday: ['Result', 'What did you finish this week, and what result did it get? (time saved, cost, a number)'],\n  };\n  const [type, question] = plan[day] || ['Build log', 'What did you build or learn recently? What broke, and how did you fix it?'];\n  s.stage = 'notes'; s.type = type; s.notes = ''; s.draft = '';\n  return { action: 'ask', type, question };\n}\nconst s = $getWorkflowStaticData('global');\nreturn [{ json: startPost(s) }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        160
+      ],
+      "name": "Start post",
+      "id": "b2c3d4e5-0000-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        420
+      ],
+      "name": "Telegram message",
+      "id": "b2c3d4e5-0000-4000-8000-000000000002"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "me",
+              "leftValue": "={{ String($json.message?.chat?.id) }}",
+              "rightValue": "OWNER_CHAT_ID",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        420
+      ],
+      "name": "Only me?",
+      "id": "b2c3d4e5-0000-4000-8000-000000000003"
+    },
+    {
+      "parameters": {
+        "jsCode": "function startPost(s) {\n  const day = new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Africa/Addis_Ababa' });\n  const plan = {\n    Monday: ['Plan', 'What are you building or learning this week, and why does it matter for a small business?'],\n    Tuesday: ['Build log', 'What did you build today? What broke, and how did you fix it?'],\n    Wednesday: ['Tip', \"What's one tip from your work that a small business owner or builder could use today?\"],\n    Thursday: ['Build log', 'What did you build today? What broke, and how did you fix it?'],\n    Friday: ['Result', 'What did you finish this week, and what result did it get? (time saved, cost, a number)'],\n  };\n  const [type, question] = plan[day] || ['Build log', 'What did you build or learn recently? What broke, and how did you fix it?'];\n  s.stage = 'notes'; s.type = type; s.notes = ''; s.draft = '';\n  return { action: 'ask', type, question };\n}\nconst s = $getWorkflowStaticData('global');\nconst text = ($json.message?.text || '').trim();\nconst low = text.toLowerCase();\nconst say = (reply) => [{ json: { action: 'say', reply } }];\n\nif (!text) return say('Please send text messages only.');\nif (low === '/start' || low === '/help') {\n  return say('Hi! Every weekday at 4 pm I ask what you built and write a LinkedIn post from it.\\n\\n/post – start a post now\\nReply with changes to update a draft\\nedit: <your text> – use your own wording\\n✅ Approve – post it\\n⏭ Skip or /cancel – stop');\n}\nif (low === '/post' || low === '/new') return [{ json: startPost(s) }];\nif (low === '/cancel' || low === 'cancel' || low === 'skip' || low.includes('skip')) {\n  s.stage = 'idle';\n  return say('👍 OK, no post for now. Send /post any time to start one.');\n}\nif (s.stage === 'notes') {\n  s.notes = text;\n  return [{ json: { action: 'draft', type: s.type, notes: text, previous: '', feedback: '' } }];\n}\nif (s.stage === 'review') {\n  const approve = ['✅ approve', 'approve', 'approved', 'yes', 'ok', 'okay', 'post', 'post it', 'publish', '✅'];\n  if (approve.includes(low)) return [{ json: { action: 'post', text: s.draft, type: s.type, notes: s.notes } }];\n  if (low.startsWith('edit:')) {\n    s.draft = text.slice(5).trim();\n    return [{ json: { action: 'show', draft: s.draft } }];\n  }\n  return [{ json: { action: 'draft', type: s.type, notes: s.notes, previous: s.draft, feedback: text } }];\n}\nreturn say('Send /post to write a LinkedIn post now, or wait for my 4 pm question.');"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        420
+      ],
+      "name": "Read my reply",
+      "id": "b2c3d4e5-0000-4000-8000-000000000004"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ask",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "ask",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ask"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "draft",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "draft"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "show",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "show",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "show"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "post",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "post",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "post"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "say",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "say",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "say"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        680,
+        300
+      ],
+      "name": "Route",
+      "id": "b2c3d4e5-0000-4000-8000-000000000005"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "=📝 LinkedIn post: {{ $json.type }}\n\n{{ $json.question }}\n\nJust reply here with a few lines, or tap ⏭ Skip.",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "⏭ Skip",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": true
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        940,
+        0
+      ],
+      "name": "Ask question",
+      "id": "b2c3d4e5-0000-4000-8000-000000000006"
+    },
+    {
+      "parameters": {
+        "resource": "block",
+        "operation": "getAll",
+        "blockId": {
+          "__rl": true,
+          "value": "YOUR_NOTION_FACTS_PAGE_ID",
+          "mode": "id"
+        },
+        "returnAll": true,
+        "simplifyOutput": true
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        940,
+        180
+      ],
+      "name": "Get LinkedIn facts",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "id": "b2c3d4e5-0000-4000-8000-000000000007"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('Read my reply').first().json;\nconst facts = $input.all().map(i => i.json.content || '').filter(Boolean).join('\\n');\nreturn [{ json: { ...r, facts: facts || '(facts page unavailable: use only the notes)' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        180
+      ],
+      "name": "Draft request",
+      "id": "b2c3d4e5-0000-4000-8000-000000000008"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You write LinkedIn posts for Semret Gebru, an n8n and AI automation developer in Addis Ababa, Ethiopia, who builds automations for small businesses with n8n, Make, Zapier and Claude.\n\nReal facts about Semret's work (from the LinkedIn facts page). Use only these and the notes below; never invent anything else:\n{{ $json.facts }}\n\nPost type: {{ $json.type }}\nSemret's notes:\n{{ $json.notes }}\n{{ $json.previous ? \"\\nYour previous draft:\\n\" + $json.previous + \"\\n\\nSemret asked for these changes. Apply them and keep everything else that works:\\n\" + $json.feedback : \"\" }}\n\nRules:\n- Always return a finished post, never a question or a note to Semret. If the notes are short or vague, build the post from the most fitting facts above.\n- If the notes ask for an opinion that is not in the notes or facts (for example which tool was hardest), use the comparison facts and stay neutral rather than guessing.\n- Write in the first person, plain and honest, like a builder talking to small business owners. No hype, no buzzwords, at most one emoji.\n- Never invent numbers, clients, results, opinions or tools.\n- The first line must make people want to read on: the problem, the mistake or the surprising result.\n- Short paragraphs of 1 to 2 sentences, 120 to 220 words in total.\n- Build log: what broke, what was tried, the fix, one lesson. Tip: one practical tip with a concrete example. Result: what was finished and the outcome. Plan: what is being built this week and why it matters.\n- End with the lesson or a short question to readers. At most 3 hashtags, on the last line.\n- No links, phone numbers or email addresses.\n\nReturn only the post text."
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1380,
+        180
+      ],
+      "name": "Write post",
+      "id": "b2c3d4e5-0000-4000-8000-000000000009"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 5.5"
+        },
+        "options": {
+          "thinkingMode": "disabled",
+          "maxTokensToSample": 800
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        1380,
+        400
+      ],
+      "name": "Claude Haiku 5.5",
+      "id": "b2c3d4e5-0000-4000-8000-000000000010"
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $getWorkflowStaticData('global');\ns.draft = ($json.text || '').trim();\ns.stage = 'review';\nreturn [{ json: { draft: s.draft } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        180
+      ],
+      "name": "Save draft",
+      "id": "b2c3d4e5-0000-4000-8000-000000000011"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "=✍️ LinkedIn draft\n\n{{ $json.draft }}\n\n———\nTap ✅ Approve to post it, or type the changes you want.\nTo use your own wording, send: edit: <your full post>",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✅ Approve",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "⏭ Skip",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": true
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1820,
+        260
+      ],
+      "name": "Show draft",
+      "id": "b2c3d4e5-0000-4000-8000-000000000012"
+    },
+    {
+      "parameters": {
+        "authentication": "standard",
+        "resource": "post",
+        "operation": "create",
+        "postAs": "person",
+        "person": "YOUR_LINKEDIN_PERSON_ID",
+        "text": "={{ $json.text }}",
+        "shareMediaCategory": "NONE",
+        "additionalFields": {
+          "visibility": "PUBLIC"
+        }
+      },
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        940,
+        480
+      ],
+      "name": "Post to LinkedIn",
+      "id": "b2c3d4e5-0000-4000-8000-000000000013"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "YOUR_NOTION_POSTS_DATA_SOURCE_ID",
+          "mode": "id"
+        },
+        "title": "={{ $('Read my reply').first().json.text.split('\\n')[0].slice(0, 90) }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Post|rich_text",
+              "textContent": "={{ $('Read my reply').first().json.text.slice(0, 1990) }}"
+            },
+            {
+              "key": "Notes|rich_text",
+              "textContent": "={{ ($('Read my reply').first().json.notes || '').slice(0, 1990) }}"
+            },
+            {
+              "key": "Type|select",
+              "selectValue": "={{ $('Read my reply').first().json.type }}"
+            },
+            {
+              "key": "Status|select",
+              "selectValue": "Posted"
+            },
+            {
+              "key": "Date|date",
+              "date": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        1160,
+        480
+      ],
+      "name": "Log in Notion",
+      "onError": "continueRegularOutput",
+      "id": "b2c3d4e5-0000-4000-8000-000000000014"
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $getWorkflowStaticData('global');\ns.stage = 'idle'; s.draft = ''; s.notes = '';\nreturn [{ json: { ok: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1380,
+        580
+      ],
+      "name": "Finish",
+      "id": "b2c3d4e5-0000-4000-8000-000000000015"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "✅ Posted on LinkedIn and saved in Notion.",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "replyKeyboardRemove",
+        "replyKeyboardRemove": {
+          "remove_keyboard": true
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        580
+      ],
+      "name": "Posted",
+      "id": "b2c3d4e5-0000-4000-8000-000000000016"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "={{ $json.reply }}",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "replyKeyboardRemove",
+        "replyKeyboardRemove": {
+          "remove_keyboard": true
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        940,
+        700
+      ],
+      "name": "Reply",
+      "id": "b2c3d4e5-0000-4000-8000-000000000017"
+    },
+    {
+      "parameters": {
+        "content": "## Daily LinkedIn post (Telegram chat)\nMon-Fri 16:00 Addis time, or /post any time: the LinkedIn Bot asks what I built. I reply in the chat, Claude Haiku 5.5 writes a draft using the Notion 'LinkedIn facts' page, and the bot shows it with ✅ Approve / ⏭ Skip buttons. Typing changes rewrites the draft; 'edit: <text>' uses my own wording. Approve posts to LinkedIn and logs it in Notion. Conversation state is kept in workflow static data (production runs only). Only messages from my chat ID are handled. Errors → Error Alert - Slack.",
+        "height": 260,
+        "width": 460
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -320
+      ],
+      "name": "Notes",
+      "id": "b2c3d4e5-0000-4000-8000-000000000018"
+    }
+  ],
+  "connections": {
+    "Weekdays 4 pm": {
+      "main": [
+        [
+          {
+            "node": "Start post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start post": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram message": {
+      "main": [
+        [
+          {
+            "node": "Only me?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only me?": {
+      "main": [
+        [
+          {
+            "node": "Read my reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Read my reply": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Ask question",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get LinkedIn facts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Show draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get LinkedIn facts": {
+      "main": [
+        [
+          {
+            "node": "Draft request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft request": {
+      "main": [
+        [
+          {
+            "node": "Write post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write post": {
+      "main": [
+        [
+          {
+            "node": "Save draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save draft": {
+      "main": [
+        [
+          {
+            "node": "Show draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Log in Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log in Notion": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish": {
+      "main": [
+        [
+          {
+            "node": "Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Haiku 5.5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write post",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Africa/Addis_Ababa",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}
