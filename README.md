@@ -1,6 +1,6 @@
 # n8n Automations
 
-Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, a daily AI sales report, a website chat assistant with a knowledge base and calendar booking, a LinkedIn assistant controlled from Telegram, and an AI email inbox assistant. Each workflow is exported as JSON so it can be imported into your own n8n instance.
+Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, a daily AI sales report, a website chat assistant with a knowledge base and calendar booking, a LinkedIn assistant controlled from Telegram, an AI email inbox assistant, and an AI lead responder for real estate agents. Each workflow is exported as JSON so it can be imported into your own n8n instance.
 
 ## Workflows
 
@@ -129,6 +129,16 @@ Gmail trigger (every minute, unread) → Code (clean the email) → Basic LLM Ch
 The prompt treats the email as data, so instructions hidden in an email are ignored, and replies use only the owner's facts, never invented prices or dates.
 
 Running cost: about $0.0003 per email with Claude Haiku 5.5.
+
+### 10. AI real estate lead responder: form → Claude → instant email, CRM and Telegram (`10-real-estate-lead-responder/`)
+
+A home buyer or seller fills in the agent's form. Claude scores the lead 1–5 (Hot, Warm, Cold) from timeline, financing and budget, and the lead gets a personal email reply within seconds. The lead is saved in a Notion CRM with the reply time, and the agent gets a Telegram alert for hot and warm leads. The prompt follows Fair Housing rules and never invents listings, prices or rates.
+
+Flow:
+
+n8n Form → Code (clean fields) → Basic LLM Chain (Claude Haiku 5.5, structured output: score, summary, next step, email) → Gmail reply to the lead → Notion CRM row → Telegram alert if score ≥ 3
+
+Running cost: about $0.0004 per lead with Claude Haiku 5.5.
 
 ## Setup
 
