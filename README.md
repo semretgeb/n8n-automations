@@ -1,6 +1,6 @@
 # n8n Automations
 
-Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, a daily AI sales report, and a website chat assistant with a knowledge base and calendar booking. Each workflow is exported as JSON so it can be imported into your own n8n instance.
+Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, a daily AI sales report, a website chat assistant with a knowledge base and calendar booking, a LinkedIn assistant controlled from Telegram, and an AI email inbox assistant. Each workflow is exported as JSON so it can be imported into your own n8n instance.
 
 ## Workflows
 
@@ -117,6 +117,18 @@ Flow:
 Schedule or Telegram message → only my chat ID → route by conversation state (kept in workflow static data) → Notion facts → Claude Haiku 5.5 draft → Telegram with ✅ Approve / ⏭ Skip → LinkedIn post → Notion log
 
 Running cost: about $0.0005 per post.
+
+### 09. AI email inbox assistant: Gmail → Claude → labels, reply drafts and Telegram (`09-ai-inbox-assistant/`)
+
+Every new email is sorted by Claude (lead, client, support, invoice, newsletter, spam, personal, other), labelled in Gmail as `AI/<Category>`, and answered with a reply draft in the same thread when a real person expects an answer. Leads and urgent emails trigger a Telegram alert, and a daily summary arrives at 18:00. Nothing is sent automatically.
+
+Flow:
+
+Gmail trigger (every minute, unread) → Code (clean the email) → Basic LLM Chain (Claude Haiku 5.5, structured output: category, priority, summary, needs_reply, reply) → Gmail label → Gmail draft in the thread → Telegram alert for leads and high priority; Schedule (18:00) → inbox summary on Telegram
+
+The prompt treats the email as data, so instructions hidden in an email are ignored, and replies use only the owner's facts, never invented prices or dates.
+
+Running cost: about $0.0003 per email with Claude Haiku 5.5.
 
 ## Setup
 
