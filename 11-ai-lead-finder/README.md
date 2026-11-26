@@ -30,6 +30,7 @@ n8n Form (business type, city, your offer, max leads) → Code (build the map qu
 
 ## Built to be reliable
 
+- **Fact check on every line.** Claude must also return the exact words from the website that its first line is based on. A Code step checks that those words really appear on the page; if not, or if the line is over 30 words, the lead is saved as "Check manually" instead of "Ready to send". This catches invented quotes; it cannot prove the sentence says exactly what the quote says, so read each line before you send it.
 - **No invented facts.** The prompt allows only facts from the website text. In testing, one listed website belonged to a different hotel in another country; Claude said so and left the first line empty instead of making one up.
 - **Dead or blocked websites don't stop the run.** They are saved with the status "Check manually", so you still keep the phone number and address.
 - **Busy map server.** The search retries 5 times, then switches to a backup Overpass server automatically.

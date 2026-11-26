@@ -156,7 +156,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=You help a freelancer write the first line of a cold email.\n\nThe freelancer offers: {{ $json.offer }}\nBusiness: {{ $json.name }} ({{ $json.type }} in {{ $json.city }})\nText from their website:\n\"\"\"\n{{ $json.page }}\n\"\"\"\n\nRules:\n- Use ONLY facts from the website text above. Never invent services, awards, years or names.\n- first_line: one friendly sentence, max 25 words, mentions something specific from their site, and links naturally to the offer. No \"I hope this finds you well\", no flattery.\n- what_they_do: max 12 words.\n- fit: \"high\" if the offer clearly helps this business, \"medium\" if maybe, \"low\" if not.\n- If the website text is empty or too short, set first_line to \"\", what_they_do to \"Website could not be read\" and fit to \"unknown\".\n- Write directly to the business using \"you\" and \"your\", not their name in third person.\n- Do not claim you already built something for them; suggest how the offer could help.",
+        "text": "=You help a freelancer write the first line of a cold email.\n\nThe freelancer offers: {{ $json.offer }}\nBusiness: {{ $json.name }} ({{ $json.type }} in {{ $json.city }})\nText from their website:\n\"\"\"\n{{ $json.page }}\n\"\"\"\n\nRules:\n- Use ONLY facts from the website text above. Never invent services, awards, years or names.\n- first_line: one friendly sentence, HARD LIMIT 25 words (count them; if longer, shorten it), mentions something specific from their site, and links naturally to the offer. No \"I hope this finds you well\", no flattery.\n- what_they_do: max 12 words.\n- fit: \"high\" if the offer clearly helps this business, \"medium\" if maybe, \"low\" if not.\n- If the website text is empty or too short, set first_line to \"\", what_they_do to \"Website could not be read\" and fit to \"unknown\".\n- Write directly to the business using \"you\" and \"your\", not their name in third person.\n- Do not claim you already built something for them; suggest how the offer could help.\n- Do not start first_line with \"Saw\", \"I noticed\" or the business name. Start with \"Your\" or \"You\" where it reads naturally.\n- One specific fact from the site is enough. Do not list several.\n- Never claim anything about their enquiries, workload, volume, customers or problems unless the website text says it. Use the fact as the site states it.\n- source_quote: copy the exact words (5 to 15 words) from the website text that first_line is based on. Copy them exactly, do not change them. If first_line is \"\", set source_quote to \"\".",
         "hasOutputParser": true,
         "batching": {}
       },
@@ -194,7 +194,7 @@
     },
     {
       "parameters": {
-        "jsonSchemaExample": "{ \"first_line\": \"Saw you offer same-day implants in Bole...\", \"what_they_do\": \"Family dental clinic with implants and whitening\", \"fit\": \"high\" }\n"
+        "jsonSchemaExample": "{\n \"first_line\": \"Your Chorlton, Didsbury and Withington listings could get replies within 60 seconds, even at night.\",\n \"what_they_do\": \"Estate agent selling homes in South Manchester\",\n \"fit\": \"high\",\n \"source_quote\": \"We cover Chorlton, Didsbury and Withington\"\n}"
       },
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
@@ -208,7 +208,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const b = $('Clean page').item.json;\nconst ai = $json.output || {};\nreturn { json: {\n  Date: new Date().toISOString().slice(0, 10),\n  Business: b.name, Type: b.type, City: b.city,\n  Website: b.website, Phone: b.phone, Email: b.email, Address: b.address,\n  'What they do': ai.what_they_do || '',\n  'First line': ai.first_line || '',\n  Fit: ai.fit || 'unknown',\n  Status: b.site_ok && ai.first_line ? 'Ready to send' : 'Check manually',\n}};"
+        "jsCode": "const b = $('Clean page').item.json;\nconst ai = $json.output || {};\n// Proof check: the quote the AI used must really be on the website\nconst norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();\nconst quote = norm(ai.source_quote);\nconst quoteOk = quote.length > 10 && norm(b.page).includes(quote);\nconst words = String(ai.first_line || '').split(/\\s+/).filter(Boolean).length;\nlet status = 'Check manually';\nif (b.site_ok && ai.first_line) {\n  if (!quoteOk) status = 'Check manually: fact not found on site';\n  else if (words > 30) status = 'Check manually: too long';\n  else status = 'Ready to send';\n}\nreturn { json: {\n  Date: new Date().toISOString().slice(0, 10),\n  Business: b.name, Type: b.type, City: b.city,\n  Website: b.website, Phone: b.phone, Email: b.email, Address: b.address,\n  'What they do': ai.what_they_do || '',\n  'First line': ai.first_line || '',\n  Fit: ai.fit || 'unknown',\n  Status: status,\n}};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -368,7 +368,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $('Lead row').all().map(i => i.json);\nconst high = rows.filter(r => r.Fit === 'high');\nconst s = $('Keep ones with a website').first().json;\nlet msg = `🔎 Lead finder done: ${s.type} in ${s.city}\\n\\n`;\nmsg += `✅ ${rows.length} leads saved\\n🔥 ${high.length} high fit\\n`;\nmsg += `⚠️ ${rows.filter(r => r.Status === 'Check manually').length} websites could not be read\\n\\n`;\nmsg += high.slice(0, 5).map(r => `• ${r.Business}: ${r['First line']}`).join('\\n');\nreturn [{ json: { msg } }];"
+        "jsCode": "const rows = $('Lead row').all().map(i => i.json);\nconst high = rows.filter(r => r.Fit === 'high');\nconst ready = rows.filter(r => r.Status === 'Ready to send');\nconst s = $('Keep ones with a website').first().json;\nlet msg = `🔎 Lead finder done: ${s.type} in ${s.city}\\n\\n`;\nmsg += `✅ ${rows.length} leads saved\\n🔥 ${high.length} high fit\\n`;\nmsg += `⚠️ ${rows.filter(r => r.Status === 'Check manually').length} websites could not be read\\n`;\nmsg += `🔍 ${rows.filter(r => r.Status.startsWith('Check manually:')).length} lines held back by the fact check\\n\\n`;\nmsg += ready.filter(r => r.Fit === 'high').slice(0, 5).map(r => `• ${r.Business}: ${r['First line']}`).join('\\n');\nreturn [{ json: { msg } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
