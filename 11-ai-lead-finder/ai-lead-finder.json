@@ -1,0 +1,622 @@
+{
+  "name": "AI lead finder",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 11. AI lead finder + outreach\nForm (business type, city, your offer) → free OpenStreetMap search (backup server if the main one is busy) → keep businesses with a website → read each website → Claude Haiku 5.5 writes a personal first line using only facts from that site → Google Sheet (updates rows, no duplicates) → Telegram summary.\n\nDead or blocked websites are saved as \"Check manually\".\nTip: use the city's English map name (e.g. Addis Ababa, Manchester, Greater London).",
+        "height": 260,
+        "width": 700
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -260
+      ],
+      "name": "Notes",
+      "id": "9a830d4e-3247-4d1c-ba3a-65d717c6b64c"
+    },
+    {
+      "parameters": {
+        "formTitle": "Find leads",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Business type",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Dentist"
+                  },
+                  {
+                    "option": "Clinic"
+                  },
+                  {
+                    "option": "Restaurant"
+                  },
+                  {
+                    "option": "Cafe"
+                  },
+                  {
+                    "option": "Hotel"
+                  },
+                  {
+                    "option": "Gym"
+                  },
+                  {
+                    "option": "Beauty salon"
+                  },
+                  {
+                    "option": "Real estate agency"
+                  },
+                  {
+                    "option": "Lawyer"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "City",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "What you offer",
+              "placeholder": "e.g. AI assistant that answers customer messages 24/7)",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Max leads",
+              "fieldType": "number",
+              "placeholder": "20"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        96
+      ],
+      "id": "174813fb-5568-47fd-b53c-f5e7091cf6a4",
+      "name": "Lead search form",
+      "webhookId": "0c33117a-5bb3-4f95-8221-2ae089141b21"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-lead-finder"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json.query }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 90006
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        96
+      ],
+      "id": "22181ed7-aaab-411e-a41e-d4ac0620a50c",
+      "name": "Search businesses",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.website }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "html"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        0
+      ],
+      "id": "5cf52453-60fc-46ba-ade3-e3284ec408df",
+      "name": "Read website",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You help a freelancer write the first line of a cold email.\n\nThe freelancer offers: {{ $json.offer }}\nBusiness: {{ $json.name }} ({{ $json.type }} in {{ $json.city }})\nText from their website:\n\"\"\"\n{{ $json.page }}\n\"\"\"\n\nRules:\n- Use ONLY facts from the website text above. Never invent services, awards, years or names.\n- first_line: one friendly sentence, max 25 words, mentions something specific from their site, and links naturally to the offer. No \"I hope this finds you well\", no flattery.\n- what_they_do: max 12 words.\n- fit: \"high\" if the offer clearly helps this business, \"medium\" if maybe, \"low\" if not.\n- If the website text is empty or too short, set first_line to \"\", what_they_do to \"Website could not be read\" and fit to \"unknown\".\n- Write directly to the business using \"you\" and \"your\", not their name in third person.\n- Do not claim you already built something for them; suggest how the offer could help.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "cafe64e8-eea8-40f9-81a4-920754e385b2",
+      "name": "AI first line"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 5.5"
+        },
+        "options": {
+          "maxTokensToSample": 500,
+          "thinkingMode": "disabled",
+          "temperature": 0.4
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        1352,
+        232
+      ],
+      "id": "d57e3a00-a29e-445f-9e4a-0e658571f838",
+      "name": "Claude Haiku 5.5"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{ \"first_line\": \"Saw you offer same-day implants in Bole...\", \"what_they_do\": \"Family dental clinic with implants and whitening\", \"fit\": \"high\" }\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1480,
+        232
+      ],
+      "id": "a2d95822-fd74-47c4-8e14-19e8d95dd8c7",
+      "name": "First line format"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const b = $('Clean page').item.json;\nconst ai = $json.output || {};\nreturn { json: {\n  Date: new Date().toISOString().slice(0, 10),\n  Business: b.name, Type: b.type, City: b.city,\n  Website: b.website, Phone: b.phone, Email: b.email, Address: b.address,\n  'What they do': ai.what_they_do || '',\n  'First line': ai.first_line || '',\n  Fit: ai.fit || 'unknown',\n  Status: b.site_ok && ai.first_line ? 'Ready to send' : 'Check manually',\n}};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        0
+      ],
+      "id": "ec6d1502-4a48-454d-9687-2ce46dea620e",
+      "name": "Lead row"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "Website"
+          ],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Business",
+              "displayName": "Business",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "City",
+              "displayName": "City",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Website",
+              "displayName": "Website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Address",
+              "displayName": "Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "What they do",
+              "displayName": "What they do",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "First line",
+              "displayName": "First line",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fit",
+              "displayName": "Fit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1920,
+        0
+      ],
+      "id": "aac01433-b5c8-4978-977b-cef2ac72ad22",
+      "name": "Save to Sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $('Lead row').all().map(i => i.json);\nconst high = rows.filter(r => r.Fit === 'high');\nconst s = $('Keep ones with a website').first().json;\nlet msg = `🔎 Lead finder done: ${s.type} in ${s.city}\\n\\n`;\nmsg += `✅ ${rows.length} leads saved\\n🔥 ${high.length} high fit\\n`;\nmsg += `⚠️ ${rows.filter(r => r.Status === 'Check manually').length} websites could not be read\\n\\n`;\nmsg += high.slice(0, 5).map(r => `• ${r.Business}: ${r['First line']}`).join('\\n');\nreturn [{ json: { msg } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2144,
+        0
+      ],
+      "id": "2ca86ae8-22d5-4509-a756-6aba20ef22fb",
+      "name": "Count"
+    },
+    {
+      "parameters": {
+        "chatId": "OWNER_CHAT_ID",
+        "text": "={{ $json.msg }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2368,
+        0
+      ],
+      "id": "51c987c6-82d8-469b-9970-710d207cf859",
+      "name": "Tell me on Telegram",
+      "webhookId": "8644cc7b-c63a-4432-923a-d9283a1cdb1c"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const biz = $('Keep ones with a website').item.json;\nconst html = typeof $json.html === 'string' ? $json.html : '';\nconst title = (html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i) || [])[1] || '';\nconst desc = (html.match(/<meta[^>]+name=[\"']description[\"'][^>]+content=[\"']([^\"']*)/i) || [])[1] || '';\nconst text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;|&amp;|&#\\d+;/g, ' ')\n  .replace(/\\s+/g, ' ').trim();\nconst emails = [...new Set((html.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi) || [])\n  .filter(e => !/\\.(png|jpe?g|gif|webp|svg)$/i.test(e)))];\nconst ok = text.length > 200;\nreturn { json: {\n  ...biz,\n  email: biz.email || emails[0] || '',\n  site_ok: ok,\n  page: ok ? `${title}\\n${desc}\\n${text}`.slice(0, 3000) : '',\n}};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "a2dc9b94-3bef-4a68-872a-9be03fc66343",
+      "name": "Clean page"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { city, type, offer, max } = $('Build search').first().json;\nconst seen = new Set();\nconst out = [];\nfor (const el of $input.first().json.elements || []) {\n  const t = el.tags || {};\n  let site = t.website || t['contact:website'] || t.url;\n  if (!t.name || !site) continue;\n  if (!/^https?:\\/\\//i.test(site)) site = 'https://' + site;\n  const key = site.toLowerCase().replace(/^https?:\\/\\/(www\\.)?/, '').replace(/\\/$/, '');\n  if (seen.has(key)) continue;\n  seen.add(key);\n  out.push({ json: {\n    name: t.name,\n    website: site,\n    phone: t.phone || t['contact:phone'] || '',\n    email: t.email || t['contact:email'] || '',\n    address: [t['addr:street'], t['addr:city']].filter(Boolean).join(', '),\n    city, type, offer,\n  }});\n  if (out.length >= max) break;\n}\nif (!out.length) throw new Error(`No ${type} with a website found in ${city}. Try another type or city.`);\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "78e793dc-ff5c-4ee7-aadc-9f5f965bfd25",
+      "name": "Keep ones with a website"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tags = {\n  'Dentist': ['amenity=dentist', 'healthcare=dentist'],\n  'Clinic': ['amenity=clinic', 'amenity=doctors'],\n  'Restaurant': ['amenity=restaurant'],\n  'Cafe': ['amenity=cafe'],\n  'Hotel': ['tourism=hotel'],\n  'Gym': ['leisure=fitness_centre'],\n  'Beauty salon': ['shop=beauty', 'shop=hairdresser'],\n  'Real estate agency': ['office=estate_agent'],\n  'Lawyer': ['office=lawyer'],\n};\nconst f = $input.first().json;\nconst city = String(f['City']).trim().replace(/\"/g, '');\nconst type = f['Business type'];\nconst parts = tags[type].map(t => {\n  const [k, v] = t.split('=');\n  return `nwr[\"${k}\"=\"${v}\"][\"website\"](area.a);nwr[\"${k}\"=\"${v}\"][\"contact:website\"](area.a);`;\n}).join('');\nconst query = `[out:json][timeout:60];\n(area[\"name\"=\"${city}\"][\"boundary\"=\"administrative\"];\n area[\"name:en\"=\"${city}\"][\"boundary\"=\"administrative\"];)->.a;\n(${parts});\nout center tags 300;`;\nreturn [{ json: { query, city, type, offer: f['What you offer'], max: Number(f['Max leads'] || 20) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        96
+      ],
+      "id": "08b6c633-f487-4a38-931e-a7a5d28184c4",
+      "name": "Build search"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://overpass-api.de/api/interpreter",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-lead-finder"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json.query }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 90006
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        192
+      ],
+      "id": "951fe295-1b45-4897-a873-2092958031f5",
+      "name": "Search businesses (backup)",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Lead search form": {
+      "main": [
+        [
+          {
+            "node": "Build search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search businesses": {
+      "main": [
+        [
+          {
+            "node": "Keep ones with a website",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search businesses (backup)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read website": {
+      "main": [
+        [
+          {
+            "node": "Clean page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Haiku 5.5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI first line",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "First line format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI first line",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI first line": {
+      "main": [
+        [
+          {
+            "node": "Lead row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead row": {
+      "main": [
+        [
+          {
+            "node": "Save to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count": {
+      "main": [
+        [
+          {
+            "node": "Tell me on Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean page": {
+      "main": [
+        [
+          {
+            "node": "AI first line",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep ones with a website": {
+      "main": [
+        [
+          {
+            "node": "Read website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build search": {
+      "main": [
+        [
+          {
+            "node": "Search businesses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

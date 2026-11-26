@@ -1,6 +1,6 @@
 # n8n Automations
 
-Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, a daily AI sales report, a website chat assistant with a knowledge base and calendar booking, a LinkedIn assistant controlled from Telegram, an AI email inbox assistant, and an AI lead responder for real estate agents. Each workflow is exported as JSON so it can be imported into your own n8n instance.
+Practical n8n workflows for small businesses: lead capture with AI scoring, an AI support agent on Telegram, receipt processing from Gmail, content repurposing with approval in Notion, a daily AI sales report, a website chat assistant with a knowledge base and calendar booking, a LinkedIn assistant controlled from Telegram, an AI email inbox assistant, an AI lead responder for real estate agents, and an AI lead finder that writes personal outreach lines. Each workflow is exported as JSON so it can be imported into your own n8n instance.
 
 ## Workflows
 
@@ -140,6 +140,16 @@ n8n Form → Code (clean fields) → Basic LLM Chain (Claude Haiku 5.5, structur
 
 Running cost: about $0.0004 per lead with Claude Haiku 5.5.
 
+### 11. AI lead finder + outreach: map search → website → Claude → Google Sheet (`11-ai-lead-finder/`)
+
+Enter a business type, a city and your offer. The workflow finds matching businesses on OpenStreetMap (free, no API key), reads each website, and Claude writes a personal first line for a cold email using only facts from that site. Leads are saved to a Google Sheet without duplicates, and a summary arrives on Telegram. Dead websites are saved as "Check manually", and a backup map server is used when the main one is busy.
+
+Flow:
+
+n8n Form → Code (map query) → Overpass API (retries, backup server) → Code (keep businesses with a website) → HTTP Request (read each site) → Code (clean text, find emails) → Basic LLM Chain (Claude Haiku 5.5, structured output: first_line, what_they_do, fit) → Google Sheets append or update → Telegram summary
+
+Running cost: about $0.0002 per lead with Claude Haiku 5.5.
+
 ## Setup
 
 You need:
@@ -154,7 +164,7 @@ You need:
 Steps:
 1. Import the JSON file from the workflow folder into n8n (Workflows → Import from file). Import `shared/error-alert.json` (Telegram) or `shared/error-alert-slack.json` (Slack) too, and set it as the Error Workflow in each workflow's settings.
 2. Create the credentials and connect them to each node.
-3. Replace the placeholders: `OWNER_CHAT_ID`, `YOUR_NOTION_DATABASE_ID`, `YOUR_PRODUCTS_SHEET_CSV_URL`, `YOUR_FAQ_SHEET_CSV_URL` , `YOUR_RECEIPTS_SHEET_ID` and `YOUR_SHOP_ORDERS_SHEET_ID` (use the sheet's CSV export link: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0`). For workflow 03, create a sheet with the header row `vendor, date, invoice_number, currency, subtotal, tax, total, category, source_email`, and pick your Slack channel in both Slack nodes. For workflow 04, create the Notion database described above and share it with your Notion integration. For workflow 05, set the workflow timezone in its settings and replace `you@example.com` with your email. For workflow 06, run `supabase-setup.sql`, paste your own knowledge text into the load workflow and run it, set your calendar in both calendar tools and your website in the Chat Trigger's Allowed Origins, then put the Chat Trigger's production URL into `embed-widget.html`.
+3. Replace the placeholders: `OWNER_CHAT_ID`, `YOUR_NOTION_DATABASE_ID`, `YOUR_PRODUCTS_SHEET_CSV_URL`, `YOUR_FAQ_SHEET_CSV_URL` , `YOUR_RECEIPTS_SHEET_ID` and `YOUR_SHOP_ORDERS_SHEET_ID`, `YOUR_GOOGLE_SHEET_ID` (use the sheet's CSV export link: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0`). For workflow 03, create a sheet with the header row `vendor, date, invoice_number, currency, subtotal, tax, total, category, source_email`, and pick your Slack channel in both Slack nodes. For workflow 04, create the Notion database described above and share it with your Notion integration. For workflow 05, set the workflow timezone in its settings and replace `you@example.com` with your email. For workflow 06, run `supabase-setup.sql`, paste your own knowledge text into the load workflow and run it, set your calendar in both calendar tools and your website in the Chat Trigger's Allowed Origins, then put the Chat Trigger's production URL into `embed-widget.html`.
 4. Activate the workflow.
 
 ## Notes
